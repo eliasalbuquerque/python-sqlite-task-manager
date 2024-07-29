@@ -4,7 +4,8 @@
 *$py.class
 
 # Directories and stuff
-
+destravadev/
+*.db
 
 # Log files and directories
 log/
