@@ -13,6 +13,7 @@ log/
 # Windows stuff:
 *.bat
 *.vbs
+*.vscode
 
 # Google API files
 credentials.json
