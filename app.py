@@ -3,27 +3,41 @@ title: 'app'
 author: 'Elias Albuquerque'
 version: 'Python 3.12.0'
 created: '2024-07-29'
-update: '2024-07-30'
+update: '2024-08-01'
 """
 
 
-# TODO:    
-# [x] Invert the command to interact with tasks, the correct one would be: 
-#   <task_name> <--command>
-# [x] Fix the bug in completed tasks: they should not be present in the terminal
+# TODO:
 # [x] Add tab completion for command line
-# [ ] Fix the bug in the --list of tasks: must show all completed and uncompleted tasks 
+# [x] Fix the bug in the --list of tasks: must show all completed and uncompleted tasks 
 # [ ] Show --help on the first time of the app open
 # [ ] Select for remove --help of the first time app executed
 
+# --- bug na hora de remover tarefas e editar tarefas --------------------------
+# ---- alteracao das funcoes list_tasks_undone() e list_tasks ------------------
+# ----- adicionando o cache com persistencia -----------------------------------
 import sqlite3
 import os
 import datetime
 import readline
+from cachetools import LRUCache
+import json
 
-# Usar pyreadline3 no Windows
-# if os.name == 'nt':
-#     import pyreadline3 as readline
+# Configuração do cache LRU com tamanho máximo de 100 itens
+cache = LRUCache(maxsize=100)
+cache_file = 'cache.json'
+
+# Comandos disponíveis
+commands = [
+    "--add",
+    "--edit",
+    "--list",
+    "--remove",
+    "--completed",
+    "--undo",
+    "exit",
+    "--help"
+]
 
 # Função para limpar o terminal
 def clear_terminal():
@@ -51,6 +65,7 @@ def add_task(task):
     cursor.execute("INSERT INTO tasks (task) VALUES (?)", (task,))
     conn.commit()
     conn.close()
+    update_cache(task.split())
 
 # Função para editar uma tarefa
 def edit_task(old_task, new_task):
@@ -59,6 +74,7 @@ def edit_task(old_task, new_task):
     cursor.execute("UPDATE tasks SET task = ? WHERE task = ?", (new_task, old_task))
     conn.commit()
     conn.close()
+    update_cache(new_task.split())
 
 # Função para remover uma tarefa
 def remove_task(task):
@@ -94,11 +110,10 @@ def list_tasks():
 
     for task in tasks:
         if task[2]:
-            # Converta a string para um objeto datetime
-            completed_at = datetime.datetime.strptime(task[3], '%Y-%m-%d %H:%M:%S')
-            print(f"[x] {task[1]} - finalizada em {completed_at.strftime('%d/%m/%Y %H:%M')}")
-        else:
-            print(f"[ ] {task[1]}")
+            # Converte a string para um objeto datetime
+            completed_at = datetime.datetime.strptime(task[3], '%Y-%m-%d %H:%M:%S.%f')
+            print(f"[x] {task[1]} - completed on {completed_at.strftime('%d/%m/%Y %H:%M')}")
+    input("\nPressione Enter para continuar...")
 
 # Função para listar todas as tarefas ainda não concluídas
 def list_tasks_undone():
@@ -120,69 +135,77 @@ def get_tasks():
     conn.close()
     return tasks
 
-# Lista de comandos disponíveis
-commands = [
-    "--add",
-    "--edit",
-    "--list",
-    "--remove",
-    "--completed",
-    "--undo",
-    "exit",
-    "--help"
-]
+# Função para atualizar o cache de auto-complete
+def update_cache(words):
+    for word in words:
+        cache[word] = None 
 
 # Função para auto-complete
 def completer(text, state):
-    options = [i for i in commands + get_tasks() if i.startswith(text)]
+    options = [i for i in commands + list(cache.keys()) if i.startswith(text)]
     if state < len(options):
         return options[state]
     else:
         return None
 
+# Função para carregar o cache do arquivo
+def load_cache():
+    if os.path.exists(cache_file):
+        with open(cache_file, 'r', encoding='utf8') as file:
+            cache_data = json.load(file)
+            for key in cache_data:
+                cache[key] = None
+
+# Função para salvar o cache no arquivo
+def save_cache():
+    with open(cache_file, 'w', encoding='utf8') as file:
+        json.dump(list(cache.keys()), file)
+
 # Configurar auto-complete
 readline.set_completer(completer)
-readline.parse_and_bind("TAB: complete")
+readline.parse_and_bind("tab: complete")
 
 # Função principal do aplicativo
 def main():
     create_table()
+    load_cache()
 
-    while True:
-        clear_terminal()
-        list_tasks_undone()
-        command = input("$ taskpy> ")
+    try:
+        while True:
+            clear_terminal()
+            list_tasks_undone()
+            command = input("$ taskpy> ")
 
-        if command.strip() == "exit":
-            break
+            if command.strip() == "exit":
+                break
 
-        elif " --add" in command:
-            task = command.split(" --add")[0].strip()  # Pega a tarefa antes de "--add"
-            add_task(task)
+            elif " --add" in command:
+                task = command.split(" --add")[0].strip()  # Pega a tarefa antes de "--add"
+                add_task(task)
 
-        elif " --edit " in command:
-            parts = command.split(" --edit ")
-            old_task = parts[0].strip()  # Pega a tarefa antes de "--edit"
-            new_task = parts[1].strip()  # Pega a nova tarefa após "--edit"
-            edit_task(old_task, new_task)
+            elif " --edit " in command:
+                parts = command.split(" --edit ")
+                old_task = parts[0].strip()  # Pega a tarefa antes de "--edit"
+                new_task = parts[1].strip()  # Pega a nova tarefa após "--edit"
+                edit_task(old_task, new_task)
 
-        elif command == "--list":
-            list_tasks()
+            elif command == "--list":
+                list_tasks()
 
-        elif " --remove" in command:
-            task = command.split(" --remove")[0].strip()  # Pega a tarefa antes de "--remove"
-            remove_task(task)
+            elif " --remove" in command:
+                task = command.split(" --remove")[0].strip()  # Pega a tarefa antes de "--remove"
+                remove_task(task)
 
-        elif " --completed" in command:
-            task = command.split(" --completed")[0].strip()  # Pega a tarefa antes de "--completed"
-            complete_task(task)
+            elif " --completed" in command:
+                task = command.split(" --completed")[0].strip()  # Pega a tarefa antes de "--completed"
+                complete_task(task)
 
-        elif " --undo" in command:
-            task = command.split(" --undo")[0].strip()  # Pega a tarefa antes de "--undo"
-            undo_task(task)
+            elif " --undo" in command:
+                task = command.split(" --undo")[0].strip()  # Pega a tarefa antes de "--undo"
+                undo_task(task)
 
-        elif command == "--help":
-            print("""
+            elif command == "--help":
+                print("""
     Ações do Gerenciador de Tarefas:
         --add           : Adiciona nova tarefa: <task> --add
                         : Ex: Tarefa do dia --add
@@ -201,11 +224,13 @@ def main():
 
         exit            : Finalizar a aplicação e fechar o terminal: exit
             """)
-            input("Pressione Enter para continuar... ")
+                input("Pressione Enter para continuar... ")
 
-        else:
-            print("Comando inválido. Use --help para ver as opções.")
-            input("Pressione Enter para continuar... ")
+            else:
+                print("Comando inválido. Use --help para ver as opções.")
+                input("Pressione Enter para continuar... ")
+    finally:
+        save_cache()
 
 if __name__ == "__main__":
     main()
