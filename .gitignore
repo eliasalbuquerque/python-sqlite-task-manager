@@ -7,6 +7,7 @@
 destravadev/
 *.db
 *cache*
+*config*
 
 # Log files and directories
 log/
