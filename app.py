@@ -1,236 +1,178 @@
-"""
-title: 'app'
-author: 'Elias Albuquerque'
-version: 'Python 3.12.0'
-created: '2024-07-29'
-update: '2024-08-01'
-"""
+# title: 'app'
+# author: 'Elias Albuquerque'
+# version: '0.2.1'
+# created: '2024-07-29'
+# update: '2024-08-02'
 
-
+# NOTE: alteraçoes realizadas nessa versao:
+# * implementado modulos taskmanager e messages
+# * implementado diretorio .\src para modulos, cache e banco de dados
+# * implementado lista de comandos
+# * implementado docstring inspirado no estilo Google
+# * implementar iniciar com --help e desabilitar se quiser
 # TODO:
-# [x] Add tab completion for command line
-# [x] Fix the bug in the --list of tasks: must show all completed and uncompleted tasks 
-# [ ] Show --help on the first time of the app open
-# [ ] Select for remove --help of the first time app executed
+# atualizar o arquivo readme.md
+# implementar comando 'undo'
 
-# --- bug na hora de remover tarefas e editar tarefas --------------------------
-# ---- alteracao das funcoes list_tasks_undone() e list_tasks ------------------
-# ----- adicionando o cache com persistencia -----------------------------------
 import sqlite3
 import os
 import datetime
 import readline
 from cachetools import LRUCache
 import json
+import src.messages as messages
+import src.taskmanager as taskmanager
 
 # Configuração do cache LRU com tamanho máximo de 100 itens
 cache = LRUCache(maxsize=100)
-cache_file = 'cache.json'
+cache_file = r'src\cache.json'
+db_file = r'src\tasks.db'
+config_file = r'src\config.json'
 
 # Comandos disponíveis
 commands = [
     "--add",
     "--edit",
-    "--list",
+    "--done",
     "--remove",
-    "--completed",
+    "--list_done",
+    "--commands",
     "--undo",
+    "--help",
+    "--message-disable",
+    "--message-enable",
     "exit",
-    "--help"
 ]
 
-# Função para limpar o terminal
-def clear_terminal():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-# Função para criar a tabela de tarefas no banco de dados
-def create_table():
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            task TEXT NOT NULL,
-            completed BOOLEAN DEFAULT FALSE,
-            completed_at DATETIME
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-# Função para adicionar uma tarefa
-def add_task(task):
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO tasks (task) VALUES (?)", (task,))
-    conn.commit()
-    conn.close()
-    update_cache(task.split())
-
-# Função para editar uma tarefa
-def edit_task(old_task, new_task):
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("UPDATE tasks SET task = ? WHERE task = ?", (new_task, old_task))
-    conn.commit()
-    conn.close()
-    update_cache(new_task.split())
-
-# Função para remover uma tarefa
-def remove_task(task):
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM tasks WHERE task = ?", (task,))
-    conn.commit()
-    conn.close()
-
-# Função para marcar uma tarefa como concluída
-def complete_task(task):
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("UPDATE tasks SET completed = TRUE, completed_at = ? WHERE task = ?", (datetime.datetime.now(), task))
-    conn.commit()
-    conn.close()
-
-# Função para desfazer uma tarefa concluída
-def undo_task(task):
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("UPDATE tasks SET completed = FALSE, completed_at = NULL WHERE task = ?", (task,))
-    conn.commit()
-    conn.close()
-
-# Função para listar todas as tarefas salvas no banco de dados
-def list_tasks():
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tasks")
-    tasks = cursor.fetchall()
-    conn.close()
-
-    for task in tasks:
-        if task[2]:
-            # Converte a string para um objeto datetime
-            completed_at = datetime.datetime.strptime(task[3], '%Y-%m-%d %H:%M:%S.%f')
-            print(f"[x] {task[1]} - completed on {completed_at.strftime('%d/%m/%Y %H:%M')}")
-    input("\nPressione Enter para continuar...")
-
-# Função para listar todas as tarefas ainda não concluídas
-def list_tasks_undone():
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tasks WHERE completed = 0;")
-    tasks = cursor.fetchall()
-    conn.close()
-
-    for task in tasks:
-        print(f"[ ] {task[1]}")
-
-# Função para obter todas as tarefas salvas no banco de dados
-def get_tasks():
-    conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT task FROM tasks")
-    tasks = [task[0] for task in cursor.fetchall()]
-    conn.close()
-    return tasks
-
-# Função para atualizar o cache de auto-complete
-def update_cache(words):
-    for word in words:
-        cache[word] = None 
-
-# Função para auto-complete
 def completer(text, state):
+    """
+    Fornece sugestões de auto-complete para comandos e tarefas.
+    Args:
+        text (str): Texto digitado pelo usuário.
+        state (int): Estado atual do auto-complete.
+    Returns:
+        str: Sugestão de auto-complete, se disponível.
+    """
+
     options = [i for i in commands + list(cache.keys()) if i.startswith(text)]
     if state < len(options):
         return options[state]
     else:
         return None
 
-# Função para carregar o cache do arquivo
-def load_cache():
-    if os.path.exists(cache_file):
-        with open(cache_file, 'r', encoding='utf8') as file:
-            cache_data = json.load(file)
-            for key in cache_data:
-                cache[key] = None
+def clear_terminal():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
-# Função para salvar o cache no arquivo
-def save_cache():
-    with open(cache_file, 'w', encoding='utf8') as file:
-        json.dump(list(cache.keys()), file)
+# Funções de configuração de mensagem de inicializaçao
+def create_config_file():
+    """
+    Cria o arquivo de configuração utilizado para habilitar ou desabilitar a 
+    mensagem de uso da aplicação no inicio da execução.
+    """
 
-# Configurar auto-complete
-readline.set_completer(completer)
-readline.parse_and_bind("tab: complete")
+    config = {"show_startup_message": True}
+    with open(config_file, 'w') as f:
+        json.dump(config, f)
 
-# Função principal do aplicativo
+def load_config_file():
+    if not os.path.exists(config_file):
+        create_config_file()
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+    return config
+
+def disable_startup_message():
+    config = load_config_file()
+    config["show_startup_message"] = False
+    with open(config_file, 'w') as f:
+        json.dump(config, f)
+    print("A mensagem de inicialização foi desabilitada.")
+    input("Pressione Enter para continuar... ")
+
+def enable_startup_message():
+    config = load_config_file()
+    config["show_startup_message"] = True
+    with open(config_file, 'w') as f:
+        json.dump(config, f)
+    print("A mensagem de inicialização foi reabilitada.")
+    input("Pressione Enter para continuar... ")
+
+def startup_message(task_manager):
+    config = load_config_file()
+    if config.get("show_startup_message", True):
+        clear_terminal()
+        task_manager.list_undone_tasks()
+        print("$ taskpy> ")
+        print(messages.get_help_message())
+        input("Pressione Enter para continuar... ")
+
 def main():
-    create_table()
-    load_cache()
+    """
+    Executa o loop principal do aplicativo de gerenciamento de tarefas.
+    """
+
+    task_manager = taskmanager.TaskManager(cache, cache_file, db_file)
+
+    # Configurar auto-complete
+    readline.set_completer(completer)
+    readline.parse_and_bind("tab: complete")
+
+    # Mostrar mensagem na inicialização
+    startup_message(task_manager)
 
     try:
         while True:
             clear_terminal()
-            list_tasks_undone()
+            task_manager.list_undone_tasks()
             command = input("$ taskpy> ")
 
             if command.strip() == "exit":
                 break
 
             elif " --add" in command:
-                task = command.split(" --add")[0].strip()  # Pega a tarefa antes de "--add"
-                add_task(task)
+                task = command.split(" --add")[0].strip()
+                task_manager.add_task(task)
 
             elif " --edit " in command:
                 parts = command.split(" --edit ")
-                old_task = parts[0].strip()  # Pega a tarefa antes de "--edit"
-                new_task = parts[1].strip()  # Pega a nova tarefa após "--edit"
-                edit_task(old_task, new_task)
+                old_task = parts[0].strip()
+                new_task = parts[1].strip()
+                task_manager.edit_task(old_task, new_task)
 
-            elif command == "--list":
-                list_tasks()
+            elif " --done" in command:
+                task = command.split(" --done")[0].strip()
+                task_manager.done_task(task)
 
             elif " --remove" in command:
-                task = command.split(" --remove")[0].strip()  # Pega a tarefa antes de "--remove"
-                remove_task(task)
+                task = command.split(" --remove")[0].strip()
+                task_manager.remove_task(task)
 
-            elif " --completed" in command:
-                task = command.split(" --completed")[0].strip()  # Pega a tarefa antes de "--completed"
-                complete_task(task)
+            elif command == "--list_done":
+                task_manager.list_done_tasks()
 
-            elif " --undo" in command:
-                task = command.split(" --undo")[0].strip()  # Pega a tarefa antes de "--undo"
-                undo_task(task)
+            elif command == "--commands":
+                print(messages.get_list_of_commands())
+                input("Pressione Enter para continuar... ")
+
+            elif command == " --undo":
+                # print(">>> Ainda não implementado!")
+                task_manager.undo_task(task)
 
             elif command == "--help":
-                print("""
-    Ações do Gerenciador de Tarefas:
-        --add           : Adiciona nova tarefa: <task> --add
-                        : Ex: Tarefa do dia --add
-
-        --edit          : Edita uma tarefa existente: <task> --edit <new_task>
-                        : Ex: Tarefa do dia --edit Automatizar tudo
-
-        --list          : Listar todas as tarefas, concluídas: --list
-
-        --remove        : Remove uma tarefa existente: <task> --remove
-                        : Ex: Automatizar tudo --remove
-
-        --completed     : Marcar uma tarefa como realizada: <task> --completed
-
-        --undo          : Desfazer uma tarefa realizada: <task> --undo
-
-        exit            : Finalizar a aplicação e fechar o terminal: exit
-            """)
+                print(messages.get_help_message())
                 input("Pressione Enter para continuar... ")
+
+            elif command == "--message-disable":
+                disable_startup_message()
+                
+            elif command == "--message-enable":
+                enable_startup_message()
 
             else:
                 print("Comando inválido. Use --help para ver as opções.")
                 input("Pressione Enter para continuar... ")
     finally:
-        save_cache()
+        task_manager.save_cache()
 
 if __name__ == "__main__":
     main()
