@@ -1,8 +1,9 @@
 # title: 'module taskmanager'
 # author: 'Elias Albuquerque'
-# version: '0.1.0'
+# version: '0.2.0'
 # created: '2024-08-02'
-# update: '2024-08-02'
+# update: '2024-08-03'
+
 
 """
 Módulo de gerenciamento de tarefas com a funcionalidade de 
@@ -21,7 +22,6 @@ Classe:
         db_file (str):    Caminho para o arquivo do banco de 
                           dados.
 """
-
 
 import sqlite3
 import os
@@ -53,6 +53,9 @@ class TaskManager:
         self.create_table()
         self.load_cache()
 
+        # Histórico de ações para o undo
+        self.undo_history = []
+
     def create_table(self):
         conn = sqlite3.connect(self.db_file)
         cursor = conn.cursor()
@@ -74,6 +77,7 @@ class TaskManager:
         conn.commit()
         conn.close()
         self.update_cache(task.split())
+        self.undo_history.append(('add', task))
 
     def edit_task(self, old_task, new_task):
         conn = sqlite3.connect(self.db_file)
@@ -82,6 +86,7 @@ class TaskManager:
         conn.commit()
         conn.close()
         self.update_cache(new_task.split())
+        self.undo_history.append(('edit', old_task, new_task))
 
     def remove_task(self, task):
         conn = sqlite3.connect(self.db_file)
@@ -89,6 +94,7 @@ class TaskManager:
         cursor.execute("DELETE FROM tasks WHERE task = ?", (task,))
         conn.commit()
         conn.close()
+        self.undo_history.append(('remove', task))
 
     def done_task(self, task):
         conn = sqlite3.connect(self.db_file)
@@ -96,13 +102,28 @@ class TaskManager:
         cursor.execute("UPDATE tasks SET completed = TRUE, completed_at = ? WHERE task = ?", (datetime.datetime.now(), task))
         conn.commit()
         conn.close()
+        self.undo_history.append(('done', task))
 
-    def undo_task(self, task):
-        conn = sqlite3.connect(self.db_file)
-        cursor = conn.cursor()
-        cursor.execute() # falta implementar desfazer açao
-        conn.commit()
-        conn.close()
+    def undo_task(self):
+        if self.undo_history:
+            action, *args = self.undo_history.pop()
+            conn = sqlite3.connect(self.db_file)
+            cursor = conn.cursor()
+
+            if action == 'add':
+                cursor.execute("DELETE FROM tasks WHERE task = ?", (args[0],))
+            elif action == 'edit':
+                old_task, new_task = args
+                cursor.execute("UPDATE tasks SET task = ? WHERE task = ?", (old_task, new_task))
+            elif action == 'remove':
+                cursor.execute("INSERT INTO tasks (task) VALUES (?)", (args[0],))
+            elif action == 'done':
+                cursor.execute("UPDATE tasks SET completed = FALSE, completed_at = NULL WHERE task = ?", (args[0],))
+
+            conn.commit()
+            conn.close()
+        else:
+            print("Não há ações para desfazer.")
 
     def list_done_tasks(self):
         conn = sqlite3.connect(self.db_file)
