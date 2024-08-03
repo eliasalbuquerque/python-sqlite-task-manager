@@ -1,8 +1,9 @@
 # title: 'module messages for menu and help commands'
 # author: 'Elias Albuquerque'
-# version: '0.1.0'
+# version: '0.2.0'
 # created: '2024-08-02'
-# update: '2024-08-02'
+# update: '2024-08-03'
+
 
 """
 Módulo que fornece funções para gerar mensagens de ajuda e 
@@ -10,12 +11,12 @@ listas de comandos para o gerenciador de tarefas.
 
 Funções:
     get_help_message(): Retorna uma string com uma mensagem 
-			detalhada de ajuda, explicando os 
-			comandos disponíveis e seu uso.
+                        detalhada de ajuda, explicando os 
+                        comandos disponíveis e seu uso.
 
     get_list_of_commands(): Retorna uma string com uma lista 
-			concisa dos comandos do gerenciador 
-			de tarefas.
+                            concisa dos comandos do 
+                            gerenciador de tarefas.
 """
 
 
@@ -37,7 +38,7 @@ def get_help_message():
                    : Ex: $ taskpy> Tarefa do dia --add
 
       --edit       : Edita uma tarefa existente.
-                   : Como usar: <tarefa> --edit <nova_tarefa>
+                   : Como usar: <tarefa> --edit <tarefa_atualizada>
                    : Ex: $ taskpy> Tarefa do dia --edit Automatizar tudo
 
       --done       : Marca uma tarefa como realizada.
