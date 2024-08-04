@@ -5,9 +5,11 @@
 
 # Directories and stuff
 destravadev/
+assets/
 *.db
 *cache*
 *config*
+TaskPy.py
 
 # Log files and directories
 log/
