@@ -32,7 +32,11 @@ facilidade de uso.
   comandos e sua funcionalidade.
 * **Desabilitar mensagens de inicialização:** Personalize sua experiência 
   desabilitando a mensagem de inicialização do aplicativo com 
-  `--message-disable`. 
+  `--message-disable`.
+
+### Vídeo do app em funcionamento
+
+* https://youtu.be/0XbgVExjCRk
 
 ## Como usar
 
