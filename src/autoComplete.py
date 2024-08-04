@@ -1,48 +1,56 @@
 # title: 'autoComplete'
 # author: 'Elias Albuquerque'
-# version: '0.1.0'
+# version: '0.2.0'
 # created: '2024-08-03'
-# update: '2024-08-03'
+# update: '2024-08-04'
 
 
-import readline
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
+from typing import List
 
-class AutoComplete:
+class AutoComplete(Completer):
     """
     Classe para gerenciar o auto-complete de comandos e 
     tarefas no terminal.
-
-    Esta classe fornece funcionalidades para:
-
-    - Sugerir auto-complete para comandos e tarefas 
-      armazenadas no cache.
-    - Configurar o auto-complete para o módulo `readline`.
     """
     
-    def __init__(self, commands, cache):
+    def __init__(self, commands: List[str], get_tasks):
         self.commands = commands
-        self.cache = cache
+        self.get_tasks = get_tasks
 
-    def completer(self, text, state):
+    def get_completions(self, document: Document, complete_event):
         """
-        Fornece sugestões de auto-complete para comandos e tarefas.
+        Fornece sugestões de auto-complete para comandos, tarefas 
+        do cache e tarefas completadas.
         Args:
-            text (str): Texto digitado pelo usuário.
-            state (int): Estado atual do auto-complete.
-        Returns:
-            str: Sugestão de auto-complete, se disponível.
+            document (Document): Documento do prompt_toolkit.
+            complete_event (CompleteEvent): Evento de completamento.
+        Yields:
+            Completion: Sugestão de auto-complete, se disponível.
         """
 
-        options = [i for i in self.commands + list(self.cache.keys()) if i.startswith(text)]
-        if state < len(options):
-            return options[state]
-        else:
-            return None
+        # Obter o texto antes do cursor, incluindo espaços
+        text_before_cursor = document.text_before_cursor
+        words = text_before_cursor.split() 
 
-    def setup(self):
+        # Obter o último termo (última palavra)
+        last_term = words[-1]
+
+        # Sugerir auto-complete para comandos
+        for command in self.commands:
+            if last_term == '' or command.startswith(last_term):
+                yield Completion(command, start_position=-len(last_term))
+
+        # Sugerir auto-complete com base em tarefas completas
+        for option in self.get_tasks:
+            if last_term in option:
+                yield Completion(option, start_position=-len(last_term))
+
+    def update_tasks(self, new_tasks: List[str]):
         """
-        Configura o auto-complete para o readline.
+        Atualiza a lista de tarefas para auto-complete.
+        Args:
+            new_tasks (List[str]): Nova lista de tarefas.
         """
-        
-        readline.set_completer(self.completer)
-        readline.parse_and_bind("tab: complete")
+        self.get_tasks = new_tasks
