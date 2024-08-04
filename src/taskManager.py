@@ -1,8 +1,8 @@
-# title: 'module taskmanager'
+# title: 'module taskManager'
 # author: 'Elias Albuquerque'
-# version: '0.2.0'
+# version: '0.2.1'
 # created: '2024-08-02'
-# update: '2024-08-03'
+# update: '2024-08-04'
 
 
 """
@@ -26,8 +26,6 @@ Classe:
 import sqlite3
 import os
 import datetime
-from cachetools import LRUCache
-import json
 
 
 class TaskManager:
@@ -37,7 +35,7 @@ class TaskManager:
     exibição de tarefas.
     """
 
-    def __init__(self, cache, cache_file, db_file):
+    def __init__(self, db_file):
         """
         Inicializa o gerenciador de tarefas.
         Parâmetros:
@@ -47,12 +45,9 @@ class TaskManager:
             db_file (str):    Caminho para o arquivo do banco de 
                               dados.
         """
-        self.cache = cache
-        self.cache_file = cache_file
         self.db_file = db_file
         self.create_table()
-        self.load_cache()
-
+        
         # Histórico de ações para o undo
         self.undo_history = []
 
@@ -76,7 +71,6 @@ class TaskManager:
         cursor.execute("INSERT INTO tasks (task) VALUES (?)", (task,))
         conn.commit()
         conn.close()
-        self.update_cache(task.split())
         self.undo_history.append(('add', task))
 
     def edit_task(self, old_task, new_task):
@@ -85,7 +79,6 @@ class TaskManager:
         cursor.execute("UPDATE tasks SET task = ? WHERE task = ?", (new_task, old_task))
         conn.commit()
         conn.close()
-        self.update_cache(new_task.split())
         self.undo_history.append(('edit', old_task, new_task))
 
     def remove_task(self, task):
@@ -148,17 +141,11 @@ class TaskManager:
         for task in tasks:
             print(f"[ ] {task[1]}")
 
-    def update_cache(self, words):
-        for word in words:
-            self.cache[word] = None  
-
-    def load_cache(self):
-        if os.path.exists(self.cache_file):
-            with open(self.cache_file, 'r', encoding='utf8') as file:
-                cache_data = json.load(file)
-                for key in cache_data:
-                    self.cache[key] = None 
-
-    def save_cache(self):
-        with open(self.cache_file, 'w', encoding='utf8') as file:
-            json.dump(list(self.cache.keys()), file) 
+    def get_list_undone_tasks(self):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("SELECT task FROM tasks WHERE completed = 0;")
+        tasks_from_db = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return tasks_from_db
+        
