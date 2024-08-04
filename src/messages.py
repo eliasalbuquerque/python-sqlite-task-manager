@@ -1,8 +1,8 @@
 # title: 'module messages for menu and help commands'
 # author: 'Elias Albuquerque'
-# version: '0.2.0'
+# version: '0.2.1'
 # created: '2024-08-02'
-# update: '2024-08-03'
+# update: '2024-08-04'
 
 
 """
@@ -29,7 +29,7 @@ def get_help_message():
     Ações do Gerenciador de Tarefas:
 
       Tecla <TAB>  : O app possui auto-complete para os comandos utilizados no 
-                     app e para as palavras digitadas no terminal.
+                     app e para as tarefas criadas no app.
                    : Como usar: Inicie a palavra e aperte <TAB>.
                    : Ex: $ taskpy> Ta+<TAB>  =>  $ taskpy> Tarefa
 
@@ -43,20 +43,20 @@ def get_help_message():
 
       --done       : Marca uma tarefa como realizada.
                    : Como usar: <tarefa> --done
-                   : Ex: $ taskpy> Tarefa do dia --done
+                   : Ex: $ taskpy> Automatizar tudo --done
 
       --remove     : Remove uma tarefa existente do banco de dados.
                    : Como usar: <tarefa> --remove
                    : Ex: Automatizar tudo --remove
+
+      --undo       : Desfaz uma ação realizada.
+                   : Ex: $ taskpy> --undo
 
       --list_done  : Lista todas as tarefas concluídas.
                    : Ex: $ taskpy> --list_done
 
       --commands   : Lista todos os comandos.
                    : Ex: $ taskpy> --commands
-
-      --undo       : Desfaz uma ação realizada.
-                   : Ex: $ taskpy> --undo
 
       --help       : Mostra os comandos do app e como utilizar cada um.
                    : Ex: $ taskpy> --help
@@ -72,8 +72,8 @@ def get_help_message():
                            como utilizar a aplicação (habilitada por padrão).
                          : Ex: $ taskpy> --message-enable
 
-      [Tip] Setas do teclado, para cima e para baixo, podem navegar pelos 
-            comandos utilizados durante a execução do app.
+      [Tip] Busque uma tarefa por qualquer palavra contida na tarefa e use o 
+            autocomplete para selecionar a tarefa desejada.
     """
 
 def get_list_of_commands():
@@ -88,4 +88,7 @@ def get_list_of_commands():
     --done   : <tarefa> --done                $ taskpy> --undo 
     --remove : <tarefa> --remove              $ taskpy> --help 
                                               $ taskpy> exit
+
+    * Desabilitar/habilitar mensagem de inicialização:
+      --message-disable / --message-enable
     """
