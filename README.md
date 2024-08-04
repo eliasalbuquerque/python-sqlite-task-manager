@@ -40,7 +40,7 @@ facilidade de uso.
 
 O TaskPy já está disponível como um executável. 
 Basta fazer o download da versão mais recente 
-[aqui](https://github.com/eliasalbuquerque/python-sqlite-task-manager/download/), 
+[aqui](https://github.com/eliasalbuquerque/python-sqlite-task-manager/tree/main/download), 
 e executar o arquivo.
 
 ### Modo desenvolvedor:
